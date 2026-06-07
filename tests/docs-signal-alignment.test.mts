@@ -10,6 +10,30 @@ function readRepo(path: string): string {
   return readFileSync(resolve(root, path), 'utf8');
 }
 
+function countSignalTableRows(doc: string): number {
+  const section = doc.match(/### Signal Types([\s\S]*?)### How It Works/);
+  assert.ok(section, 'signal docs must include a Signal Types section before How It Works');
+  return (section[1].match(/^\| \*\*/gm) || []).length;
+}
+
+function countAnalysisSignalTypes(): number {
+  const source = readRepo('src/utils/analysis-constants.ts');
+  const union = source.match(/export type SignalType =([\s\S]*?);/);
+  assert.ok(union, 'analysis constants must define SignalType union');
+  return (union[1].match(/^\s*\|\s*'[^']+'/gm) || []).length;
+}
+
+test('public signal docs keep their listed signal count in sync with the SignalType union', () => {
+  const expectedCount = countAnalysisSignalTypes();
+  for (const path of ['docs/signal-intelligence.mdx', 'docs/Docs_To_Review/DOCUMENTATION.md'] as const) {
+    const doc = readRepo(path);
+    const countMatch = doc.match(/lists (\d+) distinct signal types/);
+    assert.ok(countMatch, `${path} must publish the listed signal type count`);
+    assert.equal(Number(countMatch[1]), expectedCount, `${path} signal headline count must match SignalType`);
+    assert.equal(countSignalTableRows(doc), expectedCount, `${path} signal table rows must match SignalType`);
+  }
+});
+
 test('public signal docs stay aligned with hotspot escalation math', () => {
   const hotspotCode = readRepo('src/services/hotspot-escalation.ts');
   const hotspotsDoc = readRepo('docs/hotspots.mdx');
